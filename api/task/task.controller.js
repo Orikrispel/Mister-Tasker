@@ -1,7 +1,7 @@
 const taskService = require('./task.service.js')
-const externalService = require('../../services/external.service.js')
-
 const logger = require('../../services/logger.service.js')
+
+let isWorkerOn = false
 
 async function getTasks(req, res) {
   try {
@@ -33,7 +33,6 @@ async function getTaskById(req, res) {
 async function addTask(req, res) {
   try {
     const task = req.body
-    console.log('task:', task)
     const addedTask = await taskService.add(task)
     res.json(addedTask)
   } catch (err) {
@@ -55,33 +54,6 @@ async function updateTask(req, res) {
   }
 }
 
-async function performTask(req, res) {
-  console.log('whyyyy')
-  let task = { ...req.body }
-  try {
-    // TODO: update task status to running and save to DB
-    task.status = 'running'
-    const updatedTask = await taskService.update(task)
-    // TODO: execute the task using: externalService.execute
-    await externalService.execute(task)
-    // TODO: update task for success (doneAt, status)
-    task.doneAt = Date.now()
-    task.status = 'Done'
-  } catch (error) {
-    // TODO: update task for error: status, errors
-    logger.debug(`error in executing task ${task._id}:`, error)
-    task.status = 'Failed'
-    task.errors.unshift(error)
-  } finally {
-    // TODO: update task lastTried, triesCount and save to DB
-    task.lastTried = Date.now()
-    task.triesCount++
-    const finalTask = await taskService.update(task)
-    console.log('finalTask:', finalTask)
-    res.json(task)
-  }
-}
-
 async function removeTask(req, res) {
   try {
     const taskId = req.params.id
@@ -93,36 +65,20 @@ async function removeTask(req, res) {
   }
 }
 
-async function addTaskMsg(req, res) {
-  const { loggedinUser } = req
+async function performTask(req, res) {
+  let task = { ...req.body }
   try {
-    const taskId = req.params.id
-    const msg = {
-      txt: req.body.txt,
-      by: loggedinUser
-    }
-    const savedMsg = await taskService.addTaskMsg(taskId, msg)
-    res.json(savedMsg)
-  } catch (err) {
-    logger.error('Failed to update task', err)
-    res.status(500).send({ err: 'Failed to update task' })
-
+    const updatedTask = await taskService.performTask(task)
+    res.json(updatedTask)
+  } catch (error) {
+    throw err
   }
 }
 
-async function removeTaskMsg(req, res) {
-  const { loggedinUser } = req
-  try {
-    const taskId = req.params.id
-    const { msgId } = req.params
-
-    const removedId = await taskService.removeTaskMsg(taskId, msgId)
-    res.send(removedId)
-  } catch (err) {
-    logger.error('Failed to remove task msg', err)
-    res.status(500).send({ err: 'Failed to remove task msg' })
-
-  }
+async function runWorker() {
+  isWorkerOn = !isWorkerOn
+  console.log('toggle work tasker:', isWorkerOn)
+  return await taskService.runWorker(isWorkerOn)
 }
 
 module.exports = {
@@ -132,6 +88,5 @@ module.exports = {
   updateTask,
   performTask,
   removeTask,
-  addTaskMsg,
-  removeTaskMsg
+  runWorker
 }
