@@ -8,8 +8,9 @@ async function query(filterBy = { title: '', status: [], importance: [], }) {
         const criteria = buildCriteria(filterBy)
         console.log('criteria:', criteria)
         const collection = await dbService.getCollection('task')
-        var tasks = await collection.find(criteria).toArray()
+        const tasks = await collection.find(criteria).toArray()
         // var tasks = await collection.find().toArray()
+        console.log(tasks)
         return tasks
     } catch (err) {
         logger.error('cannot find tasks', err)
@@ -18,10 +19,9 @@ async function query(filterBy = { title: '', status: [], importance: [], }) {
 }
 
 function buildCriteria(filterBy) {
-    let criteria = {
-        title: { $text: { $search: filterBy.title } },
-        // title: { $regex: filterBy.title, $options: 'i' },
-    }
+    let criteria = {}
+
+    if (filterBy.title) criteria.$text = { $search: filterBy.title }
     if (filterBy.importance.length) {
         const importance = filterBy.importance.map(num => num = +num)
         criteria.importance = { $in: importance }
